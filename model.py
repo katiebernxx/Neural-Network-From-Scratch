@@ -21,14 +21,21 @@ def init_params(layer_sizes):
     params = {}
     L = len(layer_sizes)
     for l in range(1, L):
-        params["W" + str(l)] = np.random.randn(layer_sizes[l], layer_sizes[l - 1]) * np.sqrt(2.0 / layer_sizes[l- 1])
+        params["W" + str(l)] = np.random.randn(
+            layer_sizes[l], layer_sizes[l - 1]
+        ) * np.sqrt(2.0 / layer_sizes[l - 1])
         # We initialize the weights with He Initialization to prevent vanishing or exploding gradients
         # This is similar to Xavier Initialization but suitable for ReLU activations
         params["b" + str(l)] = np.zeros((layer_sizes[l], 1))
         # We initialize the biases to 0
-        assert params["W" + str(l)].shape == (layer_sizes[l], layer_sizes[l - 1]), f"Weight shape mismatch at layer {l}"
-        assert params["b" + str(l)].shape == (layer_sizes[l], 1), f"Bias shape mismatch at layer {l}"
-
+        assert params["W" + str(l)].shape == (
+            layer_sizes[l],
+            layer_sizes[l - 1],
+        ), f"Weight shape mismatch at layer {l}"
+        assert params["b" + str(l)].shape == (
+            layer_sizes[l],
+            1,
+        ), f"Bias shape mismatch at layer {l}"
 
     return params
 
@@ -150,13 +157,15 @@ def forward_pass(x_batch, params, layer_sizes):
     layer_sizes -- list of integers, specifying the number of neurons in each layer
 
     Returns:
-    output -- activations of the output layer, numpy array of shape (number of classes, number of examples in 
+    output -- activations of the output layer, numpy array of shape (number of classes, number of examples in
     batch)
     """
     # Ensure input is in the correct shape
     if x_batch.shape[0] != layer_sizes[0]:
         x_batch = x_batch.T
-    assert x_batch.shape[0] == layer_sizes[0], "Input features do not match the network's input size"
+    assert (
+        x_batch.shape[0] == layer_sizes[0]
+    ), "Input features do not match the network's input size"
 
     # Activations of the first layer are just the inputs
     params["A0"] = x_batch
@@ -165,20 +174,25 @@ def forward_pass(x_batch, params, layer_sizes):
 
     # Updating Z values and Activations for each hidden layer (using ReLU)
     for l in range(1, L):
-        params["Z" + str(l)] = (np.dot(params["W" + str(l)], params["A" + str(l - 1)]) + params["b" + str(l)])
+        params["Z" + str(l)] = (
+            np.dot(params["W" + str(l)], params["A" + str(l - 1)])
+            + params["b" + str(l)]
+        )
         params["A" + str(l)] = ReLU(params["Z" + str(l)])
-        assert params["Z" + str(l)].shape == (layer_sizes[l], x_batch.shape[1]), f"Shape mismatch at Z{l}"
-
+        assert params["Z" + str(l)].shape == (
+            layer_sizes[l],
+            x_batch.shape[1],
+        ), f"Shape mismatch at Z{l}"
 
     # Output layer (using softmax for multi-class classification)
-    params["Z" + str(L)] = (np.dot(params["W" + str(L)], params["A" + str(L - 1)]) + params["b" + str(L)])
+    params["Z" + str(L)] = (
+        np.dot(params["W" + str(L)], params["A" + str(L - 1)]) + params["b" + str(L)]
+    )
     params["A" + str(L)] = softmax(params["Z" + str(L)])
     assert params["A" + str(L)].shape[0] == layer_sizes[L], "Output shape mismatch"
 
-
     # Return the output of the final layer
     return params["A" + str(L)]
-
 
 
 """ Loss Calculation
@@ -187,6 +201,7 @@ def forward_pass(x_batch, params, layer_sizes):
     because it will measure the performance of a classification model that outputs probability values
     from 0 - 1. In our model, we use the softmax activation function in the output layer to do that.
     """
+
 
 def categorical_cross_entropy_loss_gradient(y_true, y_pred, epsilon=1e-12):
     """
@@ -199,12 +214,13 @@ def categorical_cross_entropy_loss_gradient(y_true, y_pred, epsilon=1e-12):
     Returns:
     dA -- gradient of the loss with respect to the activation output, same shape as y_pred
     """
-    y_pred = np.clip(y_pred, epsilon, 1. - epsilon)
+    y_pred = np.clip(y_pred, epsilon, 1.0 - epsilon)
     dA = -(y_true / y_pred)
     return dA
 
+
 def compute_loss(y_true, y_pred, epsilon=1e-12):
-    y_pred = np.clip(y_pred, epsilon, 1. - epsilon)
+    y_pred = np.clip(y_pred, epsilon, 1.0 - epsilon)
     loss = -np.sum(y_true * np.log(y_pred)) / y_true.shape[1]
     return loss
 
@@ -220,7 +236,6 @@ def compute_loss(y_true, y_pred, epsilon=1e-12):
     """
 
 
-# Backward propagation
 def backward_pass(y_batch, params, layer_sizes):
     """
     Performs the backward pass through the network to compute gradients.
@@ -239,33 +254,45 @@ def backward_pass(y_batch, params, layer_sizes):
     m = y_batch.shape[0]  # Number of examples in the batch
 
     # Calculate dA for the final layer using categorical cross-entropy loss gradient
-    params["dA" + str(L)] = categorical_cross_entropy_loss_gradient(y_batch.T, params["A" + str(L)]
+    params["dA" + str(L)] = categorical_cross_entropy_loss_gradient(
+        y_batch.T, params["A" + str(L)]
     )
-    assert params["dA" + str(L)].shape == params["A" + str(L)].shape, "Gradient shape mismatch at output layer"
-
+    assert (
+        params["dA" + str(L)].shape == params["A" + str(L)].shape
+    ), "Gradient shape mismatch at output layer"
 
     # Iterate backward from the last layer to the first hidden layer
     for l in reversed(range(1, L + 1)):
         # Compute dZ for layer l: derivative of the cost with respect to Z^l (Z^l is the pre-activation value)
-        params["dZ" + str(l)] = params["dA" + str(l)] * ReLU(params["Z" + str(l)], derivative=True)
+        params["dZ" + str(l)] = params["dA" + str(l)] * ReLU(
+            params["Z" + str(l)], derivative=True
+        )
         # Compute dW for layer l: gradient of the cost with respect to W^l
-        grads["dW" + str(l)] = (1 / m) * np.dot(params["dZ" + str(l)], params["A" + str(l - 1)].T)
+        grads["dW" + str(l)] = (1 / m) * np.dot(
+            params["dZ" + str(l)], params["A" + str(l - 1)].T
+        )
         # Compute db for layer l: gradient of the cost with respect to b^l
-        grads["db" + str(l)] = (1 / m) * np.sum(params["dZ" + str(l)], axis=1, keepdims=True)
+        grads["db" + str(l)] = (1 / m) * np.sum(
+            params["dZ" + str(l)], axis=1, keepdims=True
+        )
         # Compute dA for the previous layer l-1 if we are not at the first layer
         if l > 1:
-            params["dA" + str(l - 1)] = np.dot(params["W" + str(l)].T, params["dZ" + str(l)])
-            assert params["dA" + str(L)].shape == params["A" + str(L)].shape, "Gradient shape mismatch at output layer"
+            params["dA" + str(l - 1)] = np.dot(
+                params["W" + str(l)].T, params["dZ" + str(l)]
+            )
+            assert (
+                params["dA" + str(L)].shape == params["A" + str(L)].shape
+            ), "Gradient shape mismatch at output layer"
 
     return grads
-  
-    
+
+
 """ Updating parameters
     Update the parameters based on gradients computed during the backwards pass in an effort to optimize the 
     high dimensional cost function. We take steps of size and direction (gradient of C * learning rate) and 
     progress towards a minimum of the cost function  """
 
-# Update parameters
+
 def update_parameters(params, grads, layer_sizes, learning_rate=0.01):
     """
     Updates the weights and biases of the network using mini batch gradient descent.
@@ -285,16 +312,23 @@ def update_parameters(params, grads, layer_sizes, learning_rate=0.01):
         params["W" + str(l)] -= learning_rate * grads["dW" + str(l)]
         # Update the biases for layer l
         params["b" + str(l)] -= learning_rate * grads["db" + str(l)]
-        assert params["W" + str(l)].shape == (layer_sizes[l], layer_sizes[l-1]), f"Weight update shape mismatch at layer {l}"
-        assert params["b" + str(l)].shape == (layer_sizes[l], 1), f"Bias update shape mismatch at layer {l}"
+        assert params["W" + str(l)].shape == (
+            layer_sizes[l],
+            layer_sizes[l - 1],
+        ), f"Weight update shape mismatch at layer {l}"
+        assert params["b" + str(l)].shape == (
+            layer_sizes[l],
+            1,
+        ), f"Bias update shape mismatch at layer {l}"
 
     return params  # Return the updated parameters
+
 
 """ Training the network. 
     Loop through the forward pass, backward pass, and gradient descent to update the parameters with mini-
     batches."""
 
-# Training loop with batch processing
+
 def train(x_train, y_train, params, layer_sizes, epochs, batch_size, learning_rate):
     """
     Trains the neural network using mini-batch gradient descent.
@@ -313,14 +347,14 @@ def train(x_train, y_train, params, layer_sizes, epochs, batch_size, learning_ra
     """
     for epoch in range(epochs):
         total_loss = 0
-        
+
         x_batches, y_batches = create_batches(x_train, y_train, batch_size)
 
         for x_batch, y_batch in zip(x_batches, y_batches):
             # Forward pass
             output = forward_pass(x_batch, params, layer_sizes)
-            
-             # Compute loss
+
+            # Compute loss
             loss = compute_loss(y_batch.T, output)
             total_loss += loss
 
@@ -334,12 +368,22 @@ def train(x_train, y_train, params, layer_sizes, epochs, batch_size, learning_ra
 
     return params
 
-# Predict function
+
 def predict(x, params, layer_sizes):
+    """
+    Makes predictions using the trained neural network.
+
+    Args:
+        x -- Array of input data features.
+        params -- Dictionary containing the trained weights and biases of the network.
+        layer_sizes -- List of integers specifying the number of neurons in each layer.
+
+    Returns:
+        predictions -- Array of predicted class labels for the input data.
+    """
     # Ensure input data is correctly shaped
     if x.shape[0] != layer_sizes[0]:
         x = x.T
     output = forward_pass(x, params, layer_sizes)
     predictions = np.argmax(output, axis=0)
     return predictions
-
